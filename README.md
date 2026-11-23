@@ -1,4 +1,4 @@
-# Project 2: Process Synchronization
+# Project 2: Process and Thread Synchronization
 
 ## Part 1: Poor Student / Dear Old Dad (Semaphores)
 
@@ -23,3 +23,26 @@ make
 ```
 
 Usage: `shm_proc <parents> <children>`, where parents = 1 or 2 and children = N > 0.
+
+## Part 2: Ben's Chili Bowl (Monitors and Condition Variables)
+
+[`part2/`](part2) simulates customers and cooks at Ben's Chili Bowl as pthreads that share one restaurant.
+
+- The restaurant is a **monitor**. One `pthread_mutex_t` guards every field: the order queue, its size, order numbers, and the number of orders handled.
+- Orders form a FIFO linked list (`AddOrderToBack` adds to the rear, and `GetOrder` takes from the front). The queue holds at most `max_size` orders.
+- **`AddOrder`** (customers) waits on `can_add_orders` while the queue is full. It then gives the order its number, appends it, and signals `can_get_orders`.
+- **`GetOrder`** (cooks) waits on `can_get_orders` while the queue is empty and orders are still expected. It then takes the front order and signals `can_add_orders`. When the last expected order is taken, it broadcasts `can_get_orders`, so every waiting cook wakes up, gets `NULL` ("No more orders"), and stops.
+- Each **customer** thread places `ORDERS_PER_CUSTOMER` orders with random menu items. Each **cook** thread fulfills and frees orders until there are none left, then reports how many it fulfilled.
+- **`CloseRestaurant`** checks that every expected order was fulfilled and the queue is empty. It then destroys the mutex and condition variables and frees the restaurant.
+
+Tested with queue sizes as small as 1, more cooks than orders, and more customers than queue slots (1,000 runs with no deadlocks), plus ThreadSanitizer (no data races) and valgrind (no leaks).
+
+### Build and run
+
+```sh
+cd part2
+make
+./main
+```
+
+The constants at the top of `main.c` (`BENSCHILLIBOWL_SIZE`, `NUM_CUSTOMERS`, `NUM_COOKS`, `ORDERS_PER_CUSTOMER`) can be changed to try other workloads.
